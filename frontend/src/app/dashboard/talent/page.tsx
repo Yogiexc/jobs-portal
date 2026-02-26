@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import api from '@/lib/axios';
+import { getRecommendedJobs } from '@/services/recommendation';
 
 interface Profile {
     skills: string[];
@@ -12,6 +13,7 @@ interface Profile {
 export default function TalentDashboard() {
     const [profile, setProfile] = useState<Profile>({ skills: [], education: '', experience: '' });
     const [applications, setApplications] = useState([]);
+    const [recommendedJobs, setRecommendedJobs] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [skillsInput, setSkillsInput] = useState('');
@@ -31,6 +33,15 @@ export default function TalentDashboard() {
             setProfile(p);
             setSkillsInput(p.skills?.join(', ') || '');
             setApplications(appRes.data.data);
+
+            if (p?.id) {
+                try {
+                    const recJobs = await getRecommendedJobs(p.id);
+                    setRecommendedJobs(recJobs.data || recJobs);
+                } catch (e) {
+                    console.error('Failed to load recommended jobs', e);
+                }
+            }
         } catch (error) {
             console.error(error);
         } finally {
@@ -126,6 +137,33 @@ export default function TalentDashboard() {
                         ))}
                     </ul>
                 )}
+            </div>
+
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h2 className="text-xl font-bold mb-4 text-gray-800">🔥 AI Recommended Jobs</h2>
+                <div className="space-y-4">
+                    {recommendedJobs && recommendedJobs.length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {recommendedJobs.map((job: any) => (
+                                <div key={job.id} className="p-4 border rounded mb-3 shadow-sm hover:shadow-md transition">
+                                    <h3 className="font-semibold text-gray-900">{job.title}</h3>
+                                    <p className="text-sm text-gray-600">Company: {job.recruiter?.name || 'Unknown Company'}</p>
+                                    <p className="text-sm text-gray-500 mt-2">
+                                        Match Score: {Math.round(job.similarity * 100)}%
+                                    </p>
+                                    <div className="w-full bg-gray-200 h-2 rounded mt-2">
+                                        <div
+                                            className="bg-blue-500 h-2 rounded"
+                                            style={{ width: `${Math.round(job.similarity * 100)}%` }}
+                                        />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="text-gray-500 italic">No AI recommendations yet.</p>
+                    )}
+                </div>
             </div>
         </div>
     );

@@ -27,10 +27,11 @@ let RecommendationService = class RecommendationService {
         const vector = talent.embedding;
         const jobs = await this.prisma.$queryRawUnsafe(`
       SELECT *,
-             1 - (embedding <=> $1) AS similarity
+             1 - (embedding <=> $1::vector) AS similarity
       FROM "Job"
       WHERE embedding IS NOT NULL
-      ORDER BY embedding <=> $1
+      AND 1 - (embedding <=> $1::vector) > 0.6
+      ORDER BY embedding <=> $1::vector
       LIMIT 5;
       `, vector);
         return jobs;
@@ -45,10 +46,11 @@ let RecommendationService = class RecommendationService {
         const vector = job.embedding;
         const talents = await this.prisma.$queryRawUnsafe(`
       SELECT *,
-             1 - (embedding <=> $1) AS similarity
+             1 - (embedding <=> $1::vector) AS similarity
       FROM "TalentProfile"
       WHERE embedding IS NOT NULL
-      ORDER BY embedding <=> $1
+      AND 1 - (embedding <=> $1::vector) > 0.6
+      ORDER BY embedding <=> $1::vector
       LIMIT 5;
       `, vector);
         return talents;

@@ -3,10 +3,12 @@
 import { useEffect, useState } from 'react';
 import api from '@/lib/axios';
 import { useAuthStore } from '@/context/AuthStore';
+import { getRecommendedTalents } from '@/services/recommendation';
 
 export default function RecruiterDashboard() {
     const { user } = useAuthStore();
     const [jobs, setJobs] = useState([]);
+    const [recommendations, setRecommendations] = useState<Record<string, any[]>>({});
     const [loading, setLoading] = useState(true);
 
     // Form states
@@ -24,6 +26,18 @@ export default function RecruiterDashboard() {
             // Filter to only this recruiter's jobs because public get returns all
             const myJobs = res.data.data.filter((j: any) => j.recruiterId === user.id);
             setJobs(myJobs);
+
+            const recMap: Record<string, any[]> = {};
+            await Promise.all(myJobs.map(async (job: any) => {
+                try {
+                    const recRes = await getRecommendedTalents(job.id);
+                    recMap[job.id] = recRes.data || recRes;
+                } catch (e) {
+                    console.error('Failed to fetch recommendations for', job.id, e);
+                    recMap[job.id] = [];
+                }
+            }));
+            setRecommendations(recMap);
         } catch (error) {
             console.error(error);
         } finally {
@@ -120,6 +134,37 @@ export default function RecruiterDashboard() {
                             <a href={`/dashboard/recruiter/job/${job.id}`} className="text-blue-600 hover:underline text-sm font-medium">
                                 View Applicants
                             </a>
+                        </div>
+                        <div className="mt-4 pt-4 border-t border-gray-100">
+                            <h4 className="text-sm font-bold text-gray-800 mb-2 border-b pb-1">🔥 Top Matching Talents</h4>
+                            {recommendations[job.id] && recommendations[job.id].length > 0 ? (
+                                <ul className="space-y-2 mt-2">
+                                    {recommendations[job.id].map((talent: any) => (
+                                        <li key={talent.id} className="flex flex-col text-sm bg-gray-50 p-3 rounded-lg border border-gray-100">
+                                            <div className="flex justify-between items-start">
+                                                <div>
+                                                    <span className="font-semibold text-gray-900">{talent.user?.name || `Profile ID: ${talent.id.substring(0, 8)}`}</span>
+                                                    <p className="text-xs text-gray-500 mt-1 line-clamp-1">{talent.skills?.join(', ') || 'No skills listed'}</p>
+                                                </div>
+                                            </div>
+                                            <div className="w-full mt-3">
+                                                <div className="flex justify-between items-center mb-1">
+                                                    <span className="text-xs font-semibold text-gray-600">Match Score</span>
+                                                    <span className="text-xs font-bold text-green-600">{Math.round(talent.similarity * 100)}%</span>
+                                                </div>
+                                                <div className="w-full bg-gray-200 h-2 rounded">
+                                                    <div
+                                                        className="bg-green-500 h-2 rounded"
+                                                        style={{ width: `${Math.round(talent.similarity * 100)}%` }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </li>
+                                    ))}
+                                </ul>
+                            ) : (
+                                <p className="text-sm text-gray-500 italic mt-2">No AI recommendations yet.</p>
+                            )}
                         </div>
                     </div>
                 ))}
